@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Box Viewer</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+    }
+    #btnToggle {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #fff;
+      background-color: #007bff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transition: background 0.2s;
+    }
+    #btnToggle:hover {
+      background-color: #0056b3;
+    }
+  </style>
+
+  <!-- Import CDN Three.js, Addons, dan GSAP -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+<body>
+
+  <!-- Kontainer 3D & Tombol UI -->
+  <div id="canvas-container"></div>
+  <button id="btnToggle">Buka Penutup</button>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // 1. Scene, Camera, Renderer
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0f2f5);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 3, 5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    // Kontrol mouse (drag untuk putar sudut pandang, scroll untuk zoom)
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // 2. Pencahayaan (Lighting)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+
+    // 3. Load File GLB
+    let tutupObjek = null;
+    let isOpen = false;
+    const loader = new GLTFLoader();
+
+    // Ganti 'wadah.glb' sesuai nama file modelmu
+    loader.load(
+      'wadahalat.glb',
+      (gltf) => {
+        const model = gltf.scene;
+        scene.add(model);
+
+        // Ambil objek penutup berdasarkan nama yang diatur di Blender
+        tutupObjek = model.getObjectByName('Tutup');
+
+        if (!tutupObjek) {
+          console.warn("Objek bernama 'Tutup' tidak ditemukan. Cek Outliner Blender atau console log berikut:");
+          model.traverse((child) => console.log(child.name));
+        }
+      },
+      (xhr) => {
+        console.log(`Loading model: ${(xhr.loaded / xhr.total) * 100}%`);
+      },
+      (error) => {
+        console.error('Terjadi kesalahan saat memuat GLB:', error);
+      }
+    );
+
+    // 4. Logika Tombol Buka/Tutup dengan GSAP
+    const btn = document.getElementById('btnToggle');
+    btn.addEventListener('click', () => {
+      if (!tutupObjek) return;
+
+      isOpen = !isOpen;
+      btn.textContent = isOpen ? 'Tutup Kembali' : 'Buka Penutup';
+
+      // Jika arah putarnya terbalik atau salah sumbu, ganti x dengan y atau z, dan ubah minus/plusnya
+      const targetRotationX = isOpen ? -Math.PI / 1.8 : 0; // sekitar 100 derajat terbuka
+
+      gsap.to(tutupObjek.rotation, {
+        x: targetRotationX,
+        duration: 0.8,
+        ease: 'power2.inOut'
+      });
+    });
+
+    // 5. Responsive Resize & Animation Loop
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
